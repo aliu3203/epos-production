@@ -21,5 +21,7 @@ for n in $(seq 1 "$N"); do
         continue
     fi
     harvest "$n" "$DEST"
-    [[ $RESTART == 1 ]] && start_run "$n"
+    if [[ $RESTART == 1 ]]; then
+        start_run "$n"
+    fi
 done
