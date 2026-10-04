@@ -153,6 +153,7 @@ build_epos() {  # build_epos [n...]   (default: 1..N)
 
 # ------------------------------------------------------------------------------
 check_config
+mkdir -p "$DATA_DIR" || die "cannot create DATA_DIR $DATA_DIR"
 case "${1:-all}" in
     deps) build_deps ;;
     epos) shift; build_epos "$@" ;;

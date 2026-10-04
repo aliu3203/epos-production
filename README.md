@@ -7,11 +7,11 @@ Runs N EPOS 4.0.3 Au+Au jobs in parallel forever and collects each finished ROOT
 - **ROOT ≥ 6.16** installed, with `source /path/to/root/bin/thisroot.sh` in `~/.bashrc`
 - **System packages:**
   ```bash
-  sudo apt install build-essential gfortran cmake curl zlib1g-dev
+  sudo apt install build-essential gfortran cmake curl git zlib1g-dev
   ```
-- **RAM:** ~17 GB per instance
+- **Per instance:** ~17 GB RAM, ~3.5 GB disk
 
-FastJet 3.5.1, HepMC3 3.2.6 and [EPOS 4.0.3](https://klaus.pages.in2p3.fr/epos4/code/version.html) are downloaded and built automatically (~400 MB of downloads).
+FastJet 3.5.1, HepMC3 3.2.6 and [EPOS 4.0.3](https://klaus.pages.in2p3.fr/epos4/code/version.html) are downloaded and built automatically (~190 MB of downloads).
 
 ## Install
 
@@ -30,7 +30,7 @@ nano config.env          # set DATA_DIR and N
 
 ## How instances work
 
-FastJet and HepMC3 are installed once and shared. **EPOS is not shared:** each instance is its own complete EPOS build in `install/epos<n>/` (~4.5 GB). Instances running from one shared build use the same tables and crash.
+FastJet and HepMC3 are installed once and shared. **EPOS is not shared:** each instance is its own complete EPOS build in `install/epos<n>/` (~3.5 GB). Instances running from one shared build use the same tables and crash.
 
 Each instance has:
 
