@@ -19,8 +19,12 @@ core full                !core/corona activated
 hydro hlle               !hydro activated (hlle)
 eos x3ff                 !eos activated (standard epos eos x3ff)
 hacas full               !hadronic cascade activated   
+
+! the product of full*freeze is of total events per build.
 set nfull 50              !number of events
 set nfreeze 20            !number of freeze out events per hydro event
+
+
 set centrality 0         ! 0=min bias 
 set bminim 8.4
 set bmaxim 9.2

@@ -17,7 +17,7 @@ FastJet 3.5.1, HepMC3 3.2.6 and [EPOS 4.0.3](https://klaus.pages.in2p3.fr/epos4/
 
 ```bash
 git clone <this repo> epos-production && cd epos-production
-nano config.env          # set DATA_DIR (and N)
+nano config.env          # set DATA_DIR and N
 ./setup.sh
 ```
 
