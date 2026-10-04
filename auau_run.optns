@@ -1,0 +1,31 @@
+application hadron !hadron-hadron, hadron-nucleus, or nucleus-nucleus 
+set laproj 79       !projectile atomic number
+set maproj 197      !projectile mass number
+set latarg 79       !target atomic number
+set matarg 197       !target mass number
+set ecms 200      !sqrt(s)_pp
+
+set istmax 25 
+set iranphi 1 
+ftime on 
+
+!suppressed decays: 
+nodecays 
+ 120 -120 130 -130 
+end
+
+set ninicon 5            !number of initial conditions used for hydro evolution
+core full                !core/corona activated
+hydro hlle               !hydro activated (hlle)
+eos x3ff                 !eos activated (standard epos eos x3ff)
+hacas full               !hadronic cascade activated   
+set nfull 50              !number of events
+set nfreeze 20            !number of freeze out events per hydro event
+set centrality 0         ! 0=min bias 
+set bminim 8.4
+set bmaxim 9.2
+
+!print * 2                  !printout of event to ...check file
+
+fillTree4(C1) !root output
+

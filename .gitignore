@@ -1,0 +1,4 @@
+install/
+*.tar
+*.tar.gz
+*.log
