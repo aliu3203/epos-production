@@ -16,7 +16,7 @@ FastJet 3.5.1, HepMC3 3.2.6 and [EPOS 4.0.3](https://klaus.pages.in2p3.fr/epos4/
 ## Install
 
 ```bash
-git clone <this repo> epos-production && cd epos-production
+git clone https://github.com/aliu3203/epos-production epos-production && cd epos-production
 nano config.env          # set DATA_DIR and N
 ./setup.sh
 ```
