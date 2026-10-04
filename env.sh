@@ -52,9 +52,14 @@ harvest() {
 }
 
 # Launch the next run of instance <n> in the background.
+# Instances share one EPOS build; each only needs its own run dir (card + scratch
+# files) and output dir, created here, so raising N in config.env is enough to add one.
+# The card is re-copied every run so edits to auau_run.optns apply from the next run.
 # Subshell: HTO/CHK must point at this instance's own output dir only.
 start_run() {
     local n=$1
+    mkdir -p "$RUNS_DIR/epos$n" "$DATA_DIR/epos$n"
+    cp "$REPO_DIR/auau_run.optns" "$RUNS_DIR/epos$n/auau_run_$n.optns"
     (
         export JIN="$DATA_DIR/" OPT=./ HTO="$DATA_DIR/epos$n/" CHK="$DATA_DIR/epos$n/"
         cd "$RUNS_DIR/epos$n" || exit 1

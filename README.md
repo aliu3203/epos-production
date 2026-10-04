@@ -23,7 +23,23 @@ nano config.env          # set DATA_DIR (and N)
 ./setup.sh
 ```
 
-`setup.sh` builds everything into `install/` (~6 GB). It can be re-run safely and skips steps that are already done.
+`setup.sh` builds everything into `install/` (~4 GB). It can be re-run safely and skips steps that are already done. The two stages can also be run on their own:
+
+```bash
+./setup.sh deps    # FastJet + HepMC3 (a few minutes, once per machine)
+./setup.sh epos    # EPOS from the tarball (~1 min on 24 cores)
+```
+
+## How instances work
+
+There is **one** FastJet, **one** HepMC3 and **one** EPOS build, shared by all instances. An instance is just a pair of folders, created automatically the first time it starts:
+
+- `install/runs/epos<n>/`: run card + EPOS scratch files
+- `$DATA_DIR/epos<n>/`: its output (`output.log`, ROOT file in progress)
+
+**To change the number of instances**, edit `N` in `config.env`. Nothing needs rebuilding. A running scheduler picks up the new `N` on its next cycle; run `./cycle_epos.sh` to start new instances right away.
+
+When lowering `N`, let the removed instances' current runs finish and collect their files first (`RESTART=0 ./cycle_epos.sh` *before* lowering `N`); otherwise their last ROOT file stays in `$DATA_DIR/epos<n>/`.
 
 ## Run
 
@@ -47,11 +63,12 @@ RESTART=0 ./cycle_epos.sh                     # collect remaining files, start n
 |---|---|
 | `config.env` | machine settings (N, data disk, interval) |
 | `auau_run.optns` | run card (30–40 % central Au+Au, 200 GeV, 1000 events/file) |
-| `setup.sh` | builds deps + EPOS, creates run dirs |
+| `setup.sh` | builds FastJet + HepMC3 (`deps`) and EPOS (`epos`) |
 | `epos_scheduler.sh` | runs `cycle_epos.sh` every `INTERVAL` |
 | `cycle_epos.sh` | moves finished files, restarts idle instances |
+| `env.sh` | shared paths + helpers (`start_run`, `harvest`, …) |
 | `install/` | build output (not in git) |
 | `$DATA_DIR/epos<n>/` | live output of instance n |
 | `$DATA_DIR/$DATASET/` | collected ROOT files |
 
-To change the physics, edit `auau_run.optns` and re-run `./setup.sh`. The change applies from each instance's next run.
+To change the physics, edit `auau_run.optns`. Each instance picks it up on its next run.
