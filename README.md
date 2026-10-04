@@ -39,7 +39,7 @@ There is **one** FastJet, **one** HepMC3 and **one** EPOS build, shared by all i
 
 **To change the number of instances**, edit `N` in `config.env`. Nothing needs rebuilding. A running scheduler picks up the new `N` on its next cycle; run `./cycle_epos.sh` to start new instances right away.
 
-When lowering `N`, let the removed instances' current runs finish and collect their files first (`RESTART=0 ./cycle_epos.sh` *before* lowering `N`); otherwise their last ROOT file stays in `$DATA_DIR/epos<n>/`.
+Lowering `N` stops instances above `N` from being restarted, but their current run still finishes, and its ROOT file stays in `$DATA_DIR/epos<n>/`. Move it into the dataset by hand, or run `RESTART=0 ./cycle_epos.sh` with the old `N` once those runs are done.
 
 ## Run
 
