@@ -21,23 +21,25 @@ nano config.env          # set DATA_DIR (and N)
 ./setup.sh
 ```
 
-`setup.sh` builds everything into `install/` (~4 GB). It can be re-run safely and skips steps that are already done. The two stages can also be run on their own:
+`setup.sh` builds everything into `install/`. It can be re-run safely and skips steps that are already done. The two stages can also be run on their own:
 
 ```bash
 ./setup.sh deps    # FastJet + HepMC3 (a few minutes, once per machine)
-./setup.sh epos    # EPOS (~1 min on 24 cores, plus download)
+./setup.sh epos    # one EPOS build per instance (~1 min each on 24 cores)
 ```
 
 ## How instances work
 
-There is **one** FastJet, **one** HepMC3 and **one** EPOS build, shared by all instances. An instance is just a pair of folders, created automatically the first time it starts:
+FastJet and HepMC3 are installed once and shared. **EPOS is not shared:** each instance is its own complete EPOS build in `install/epos<n>/` (~4.5 GB). Instances running from one shared build use the same tables and crash.
 
-- `install/runs/epos<n>/`: run card + EPOS scratch files
+Each instance has:
+
+- `install/epos<n>/epos4.0.3/`: its own EPOS build; runs happen in its `auau200/` folder
 - `$DATA_DIR/epos<n>/`: its output (`output.log`, ROOT file in progress)
 
-**To change the number of instances**, edit `N` in `config.env`. Nothing needs rebuilding. A running scheduler picks up the new `N` on its next cycle; run `./cycle_epos.sh` to start new instances right away.
+**To add instances**, raise `N` in `config.env` and run `./setup.sh epos`. This builds only the new instances and leaves existing (possibly running) ones alone. To force a rebuild of specific instances, name them: `./setup.sh epos 2 4`. A running scheduler picks up the new `N` on its next cycle; run `./cycle_epos.sh` to start them right away.
 
-Lowering `N` stops instances above `N` from being restarted, but their current run still finishes, and its ROOT file stays in `$DATA_DIR/epos<n>/`. Move it into the dataset by hand, or run `RESTART=0 ./cycle_epos.sh` with the old `N` once those runs are done.
+**To lower `N`:** instances above `N` stop being restarted, but their current run still finishes, and its ROOT file stays in `$DATA_DIR/epos<n>/`. Move it into the dataset by hand, or run `RESTART=0 ./cycle_epos.sh` with the old `N` once those runs are done.
 
 ## Run
 
@@ -61,7 +63,7 @@ RESTART=0 ./cycle_epos.sh                     # collect remaining files, start n
 |---|---|
 | `config.env` | machine settings (N, data disk, interval) |
 | `auau_run.optns` | run card (30–40 % central Au+Au, 200 GeV, 1000 events/file) |
-| `setup.sh` | builds FastJet + HepMC3 (`deps`) and EPOS (`epos`) |
+| `setup.sh` | builds FastJet + HepMC3 (`deps`) and one EPOS per instance (`epos`) |
 | `epos_scheduler.sh` | runs `cycle_epos.sh` every `INTERVAL` |
 | `cycle_epos.sh` | moves finished files, restarts idle instances |
 | `env.sh` | shared paths + helpers (`start_run`, `harvest`, …) |

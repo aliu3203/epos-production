@@ -12,7 +12,7 @@ check_config
 DEST=${1:-$DATASET}
 INTERVAL=${2:-$INTERVAL}
 
-[[ -x $EPOS_BIN ]] || die "EPOS not built. Run ./setup.sh first."
+is_built 1 || die "EPOS not built. Run ./setup.sh first."
 [[ -d $DATA_DIR ]] || die "DATA_DIR $DATA_DIR not found (disk not mounted?)"
 
 while true; do

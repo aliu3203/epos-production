@@ -1,10 +1,13 @@
 #!/bin/bash
-# Download and build the shared software. Everything is built once and used by all N instances;
-# instances themselves need no build (see start_run in env.sh).
+# Download and build the software.
+#   FastJet + HepMC3: built once, shared by all instances.
+#   EPOS: one complete, separate build per instance in install/epos<n>/
+#         (instances sharing a build crash on shared tables).
 #
-# Usage:  ./setup.sh          # deps + epos
-#         ./setup.sh deps     # FastJet + HepMC3 only (once per machine)
-#         ./setup.sh epos     # download + build EPOS only
+# Usage:  ./setup.sh               # deps + EPOS for instances 1..N
+#         ./setup.sh deps          # FastJet + HepMC3 only (once per machine)
+#         ./setup.sh epos          # build EPOS for any of instances 1..N not built yet
+#         ./setup.sh epos 3 7      # (re)build instances 3 and 7 (refused while they run)
 #
 # Re-running is safe; finished steps are skipped.
 set -euo pipefail
@@ -72,36 +75,34 @@ build_deps() {
 }
 
 # ------------------------------------------------------------------------- EPOS
-build_epos() {
-    step "EPOS $EPOVSN"
-    need_tools gcc g++ gfortran make cmake curl tar
-    command -v root-config > /dev/null \
-        || die "ROOT not found. Run: source /path/to/root/bin/thisroot.sh"
-    [[ -x $FASTJET_PREFIX/bin/fastjet-config && -f $HepMC3_DIR/HepMC3Config.cmake ]] \
-        || die "FastJet/HepMC3 missing. Run: ./setup.sh deps"
-    echo "ROOT $(root-config --version) | $(cmake --version | head -1) | $JOBS build jobs"
+epos_tarball() {  # print the tarball path, downloading + verifying it if needed
+    if [[ -n $EPOS_TARBALL ]]; then
+        [[ -f $EPOS_TARBALL ]] || die "EPOS_TARBALL not found: $EPOS_TARBALL"
+        echo "$EPOS_TARBALL"
+        return
+    fi
+    local tarball="$DEPS_DIR/src/epos$EPOVSN.tgz"
+    mkdir -p "$DEPS_DIR/src"
+    fetch "$EPOS_URL" "$tarball" >&2
+    echo "$EPOS_SHA256  $tarball" | sha256sum -c --quiet >&2 \
+        || die "checksum mismatch for $tarball (delete it to re-download)"
+    echo "$tarball"
+}
+
+build_instance() {  # build_instance <n>
+    local n=$1
+    step "EPOS $EPOVSN: instance $n -> $INSTALL_DIR/epos$n"
+    use_instance "$n"
 
     if [[ ! -f $EPO/CMakeLists.txt ]]; then
-        local tarball=$EPOS_TARBALL
-        if [[ -n $tarball ]]; then
-            [[ -f $tarball ]] || die "EPOS_TARBALL not found: $tarball"
-        else
-            tarball="$DEPS_DIR/src/epos$EPOVSN.tgz"
-            mkdir -p "$DEPS_DIR/src"
-            fetch "$EPOS_URL" "$tarball"
-            echo "$EPOS_SHA256  $tarball" | sha256sum -c --quiet \
-                || die "checksum mismatch for $tarball (delete it to re-download)"
-        fi
-        echo "unpacking $tarball"
-        mkdir -p "$INSTALL_DIR"
-        tar xf "$tarball" -C "$INSTALL_DIR"
+        mkdir -p "$MYDIR"
+        tar xf "$(epos_tarball)" -C "$MYDIR"
         [[ -f $EPO/CMakeLists.txt ]] || die "tarball did not unpack to $EPO"
     fi
 
     # The stock wrapper uses fixed seeds, so every run would produce identical events.
     sed -i -E "s/^(seed[ij])=[0-9]+/\1=\`date '+%N'\`/" "$EPO/scripts/epos.in"
     grep -q "^seedj=\`date" "$EPO/scripts/epos.in" || die "could not patch random seeds in scripts/epos.in"
-    echo "random seeds patched"
 
     cmake -S "$EPO" -B "$BUILD_DIR" \
         -DCMAKE_INSTALL_PREFIX="$BIN_DIR" \
@@ -110,26 +111,53 @@ build_epos() {
         -DFASTSYS="$FASTJET_PREFIX" \
         -DHepMC3_DIR="$HepMC3_DIR" \
         -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
-        -DCMAKE_INSTALL_MESSAGE=LAZY
-    cmake --build "$BUILD_DIR" -j"$JOBS"
-    cmake --install "$BUILD_DIR"
+        -DCMAKE_INSTALL_MESSAGE=LAZY > "$MYDIR/build.log"
+    cmake --build "$BUILD_DIR" -j"$JOBS" >> "$MYDIR/build.log" 2>&1 \
+        || die "build failed, see $MYDIR/build.log"
+    cmake --install "$BUILD_DIR" >> "$MYDIR/build.log"
 
-    step "Verifying EPOS build"
-    [[ -x ${EPO}bin/Xepos && -x $EPOS_BIN ]] || die "EPOS binaries missing after install"
+    is_built "$n" || die "EPOS binaries missing after install (see $MYDIR/build.log)"
     grep -q "^seedj=\`date" "$EPOS_BIN" || die "installed $EPOS_BIN still has fixed seeds"
     if ldd "${EPO}bin/Xepos" | grep "not found"; then
         die "Xepos has unresolved libraries (above)"
     fi
-    echo "OK"
+    mkdir -p "$RUN_DIR"
+    echo "OK (random seeds patched, libraries resolved)"
+}
+
+build_epos() {  # build_epos [n...]   (default: 1..N)
+    need_tools gcc g++ gfortran make cmake curl tar
+    command -v root-config > /dev/null \
+        || die "ROOT not found. Run: source /path/to/root/bin/thisroot.sh"
+    [[ -x $FASTJET_PREFIX/bin/fastjet-config && -f $HepMC3_DIR/HepMC3Config.cmake ]] \
+        || die "FastJet/HepMC3 missing. Run: ./setup.sh deps"
+    echo "ROOT $(root-config --version) | $(cmake --version | head -1) | $JOBS build jobs"
+
+    if [[ $# -eq 0 ]]; then
+        # Default: only add missing instances, never touch ones that may be running.
+        for n in $(seq 1 "$N"); do
+            if is_built "$n"; then
+                echo "instance $n: already built"
+            else
+                build_instance "$n"
+            fi
+        done
+        return
+    fi
+    for n in "$@"; do
+        [[ $n =~ ^[1-9][0-9]*$ ]] || die "instance must be a positive integer, got '$n'"
+        is_running "$n" && die "instance $n is running; rebuild it after its run ends"
+        build_instance "$n"
+    done
 }
 
 # ------------------------------------------------------------------------------
 check_config
 case "${1:-all}" in
     deps) build_deps ;;
-    epos) build_epos ;;
+    epos) shift; build_epos "$@" ;;
     all)  build_deps; build_epos ;;
-    *)    die "usage: ./setup.sh [deps|epos]" ;;
+    *)    die "usage: ./setup.sh [deps | epos [n...]]" ;;
 esac
 
 step "Done. Start production with:"

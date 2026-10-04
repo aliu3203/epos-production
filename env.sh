@@ -7,19 +7,14 @@ DATA_DIR="${DATA_DIR%/}"
 DEPS_DIR="$INSTALL_DIR/deps"
 FASTJET_PREFIX="$DEPS_DIR/fastjet"
 HEPMC3_PREFIX="$DEPS_DIR/hepmc3"
-RUNS_DIR="$INSTALL_DIR/runs"
 
+# FastJet and HepMC3 are installed once and shared by every instance.
 export EPOVSN=4.0.3
-export EPO="$INSTALL_DIR/epos$EPOVSN/"
-export BUILD_DIR="$INSTALL_DIR/epos-build"
-export BIN_DIR="$EPO"
 export HepMC3_DIR="$HEPMC3_PREFIX/share/HepMC3/cmake"
 export FASTSYS="$FASTJET_PREFIX"
 export FASTJET_DIR="$FASTJET_PREFIX"
 export PATH="$FASTJET_PREFIX/bin:$PATH"
 export LD_LIBRARY_PATH="$HEPMC3_PREFIX/lib:$FASTJET_PREFIX/lib${ROOTSYS:+:$ROOTSYS/lib}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
-EPOS_BIN="${EPO}bin/epos"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
@@ -28,9 +23,25 @@ check_config() {
     [[ $N =~ ^[1-9][0-9]*$ ]] || die "N in config.env must be a positive integer"
 }
 
+# EPOS is NOT shared: every instance is a complete, separate build in
+# $INSTALL_DIR/epos<n>/. Concurrent runs from one build use the same tables
+# and crash. use_instance <n> points all EPOS variables at instance n's tree.
+use_instance() {
+    export MYDIR="$INSTALL_DIR/epos$1/"
+    export EPO="${MYDIR}epos$EPOVSN/"
+    export BUILD_DIR="${MYDIR}epos-build"
+    export BIN_DIR="$EPO"
+    EPOS_BIN="${EPO}bin/epos"
+    RUN_DIR="${EPO}auau200"
+}
+
+is_built() {
+    [[ -x $INSTALL_DIR/epos$1/epos$EPOVSN/bin/Xepos ]]
+}
+
 # Is instance <n> still generating events?
 is_running() {
-    pgrep -f -- "$EPOS_BIN -root auau_run_$1\$" > /dev/null
+    pgrep -f -- "$INSTALL_DIR/epos$1/epos$EPOVSN/bin/epos -root auau_run_$1\$" > /dev/null
 }
 
 # Move instance <n>'s finished ROOT file to DATA_DIR/<dest> under the next free index.
@@ -51,18 +62,21 @@ harvest() {
     ) 9>"$dest/.movelock"
 }
 
-# Launch the next run of instance <n> in the background.
-# Instances share one EPOS build; each only needs its own run dir (card + scratch
-# files) and output dir, created here, so raising N in config.env is enough to add one.
+# Launch the next run of instance <n> in the background, from its own build.
 # The card is re-copied every run so edits to auau_run.optns apply from the next run.
-# Subshell: HTO/CHK must point at this instance's own output dir only.
+# Subshell: EPO/HTO/CHK must point at this instance only.
 start_run() {
     local n=$1
-    mkdir -p "$RUNS_DIR/epos$n" "$DATA_DIR/epos$n"
-    cp "$REPO_DIR/auau_run.optns" "$RUNS_DIR/epos$n/auau_run_$n.optns"
+    if ! is_built "$n"; then
+        echo "[epos$n] not built - run ./setup.sh epos"
+        return
+    fi
     (
+        use_instance "$n"
         export JIN="$DATA_DIR/" OPT=./ HTO="$DATA_DIR/epos$n/" CHK="$DATA_DIR/epos$n/"
-        cd "$RUNS_DIR/epos$n" || exit 1
+        mkdir -p "$RUN_DIR" "$CHK"
+        cp "$REPO_DIR/auau_run.optns" "$RUN_DIR/auau_run_$n.optns"
+        cd "$RUN_DIR" || exit 1
         nohup "$EPOS_BIN" -root "auau_run_$n" > "${CHK}output.log" 2>&1 &
     )
     echo "[epos$n] new run started"
