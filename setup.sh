@@ -1,10 +1,10 @@
 #!/bin/bash
-# Build the shared software. Everything is built once and used by all N instances;
+# Download and build the shared software. Everything is built once and used by all N instances;
 # instances themselves need no build (see start_run in env.sh).
 #
 # Usage:  ./setup.sh          # deps + epos
 #         ./setup.sh deps     # FastJet + HepMC3 only (once per machine)
-#         ./setup.sh epos     # (re)build EPOS from the tarball only
+#         ./setup.sh epos     # download + build EPOS only
 #
 # Re-running is safe; finished steps are skipped.
 set -euo pipefail
@@ -14,6 +14,9 @@ FASTJET_VERSION=3.5.1
 HEPMC3_VERSION=3.2.6
 FASTJET_URL=https://fastjet.fr/repo/fastjet-$FASTJET_VERSION.tar.gz
 HEPMC3_URL=https://hepmc.web.cern.ch/hepmc/releases/HepMC3-$HEPMC3_VERSION.tar.gz
+# "Download EPOS4.0.3" link on https://klaus.pages.in2p3.fr/epos4/code/version.html
+EPOS_URL=https://box.in2p3.fr/s/g8aNMit2fKXLHYP/download
+EPOS_SHA256=785e77c1f09c72a4252ebf45230261e7a8654d9888533aeb8b4d0dd90cdda715
 
 step() { echo; echo "==> $*"; }
 
@@ -71,7 +74,7 @@ build_deps() {
 # ------------------------------------------------------------------------- EPOS
 build_epos() {
     step "EPOS $EPOVSN"
-    need_tools gcc g++ gfortran make cmake tar
+    need_tools gcc g++ gfortran make cmake curl tar
     command -v root-config > /dev/null \
         || die "ROOT not found. Run: source /path/to/root/bin/thisroot.sh"
     [[ -x $FASTJET_PREFIX/bin/fastjet-config && -f $HepMC3_DIR/HepMC3Config.cmake ]] \
@@ -79,10 +82,19 @@ build_epos() {
     echo "ROOT $(root-config --version) | $(cmake --version | head -1) | $JOBS build jobs"
 
     if [[ ! -f $EPO/CMakeLists.txt ]]; then
-        [[ -f $EPOS_TARBALL ]] || die "EPOS tarball not found at $EPOS_TARBALL"
-        echo "unpacking $EPOS_TARBALL"
+        local tarball=$EPOS_TARBALL
+        if [[ -n $tarball ]]; then
+            [[ -f $tarball ]] || die "EPOS_TARBALL not found: $tarball"
+        else
+            tarball="$DEPS_DIR/src/epos$EPOVSN.tgz"
+            mkdir -p "$DEPS_DIR/src"
+            fetch "$EPOS_URL" "$tarball"
+            echo "$EPOS_SHA256  $tarball" | sha256sum -c --quiet \
+                || die "checksum mismatch for $tarball (delete it to re-download)"
+        fi
+        echo "unpacking $tarball"
         mkdir -p "$INSTALL_DIR"
-        tar xf "$EPOS_TARBALL" -C "$INSTALL_DIR"
+        tar xf "$tarball" -C "$INSTALL_DIR"
         [[ -f $EPO/CMakeLists.txt ]] || die "tarball did not unpack to $EPO"
     fi
 

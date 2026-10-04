@@ -9,16 +9,14 @@ Runs N EPOS 4.0.3 Au+Au jobs in parallel forever and collects each finished ROOT
   ```bash
   sudo apt install build-essential gfortran cmake curl zlib1g-dev
   ```
-- **EPOS 4.0.3 tarball** (`epos4.0.3.tar`). It isn't public; request it at https://klaus.pages.in2p3.fr/epos4/
 - **RAM:** ~17 GB per instance
 
-FastJet 3.5.1 and HepMC3 3.2.6 are downloaded and built automatically.
+FastJet 3.5.1, HepMC3 3.2.6 and [EPOS 4.0.3](https://klaus.pages.in2p3.fr/epos4/code/version.html) are downloaded and built automatically (~400 MB of downloads).
 
 ## Install
 
 ```bash
 git clone <this repo> epos-production && cd epos-production
-cp /path/to/epos4.0.3.tar .
 nano config.env          # set DATA_DIR (and N)
 ./setup.sh
 ```
@@ -27,7 +25,7 @@ nano config.env          # set DATA_DIR (and N)
 
 ```bash
 ./setup.sh deps    # FastJet + HepMC3 (a few minutes, once per machine)
-./setup.sh epos    # EPOS from the tarball (~1 min on 24 cores)
+./setup.sh epos    # EPOS (~1 min on 24 cores, plus download)
 ```
 
 ## How instances work
